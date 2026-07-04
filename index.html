@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#14171d">
+<title>Bills</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root{
+    --bg:#14171d; --card:#1c2128; --card-paid:#181f1b; --line:#2a3038;
+    --text:#e9e6df; --muted:#8a919c; --dim:#565c66; --disabled:#3a4048;
+    --amber:#e8b04b; --green:#7cbf8a; --red:#e07a6b;
+    --mono:ui-monospace,'SF Mono','Cascadia Mono',Menlo,Consolas,monospace;
+    --sans:-apple-system,'Segoe UI',Roboto,'Helvetica Neue',sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);
+       padding-bottom:150px;-webkit-tap-highlight-color:transparent}
+  .wrap{max-width:560px;margin:0 auto;padding:24px 16px 0}
+  header{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px}
+  h1{font-size:26px;font-weight:700;margin:0;letter-spacing:-0.02em}
+  .subtle{color:var(--muted);font-size:13px;margin-bottom:18px}
+  button{font-family:var(--sans);cursor:pointer}
+  .ghost{background:none;border:1px solid var(--line);color:var(--muted);
+         border-radius:8px;padding:5px 10px;font-size:12px}
+  .bill{background:var(--card);border:1px solid var(--line);border-radius:12px;
+        padding:10px 12px;margin-bottom:8px;transition:background .15s,opacity .15s}
+  .bill.paid{background:var(--card-paid);border-color:#24332a;opacity:.72}
+  .row1{display:flex;align-items:center;gap:10px}
+  .check{width:26px;height:26px;min-width:26px;border-radius:8px;
+         border:1.5px solid var(--muted);background:transparent;color:var(--bg);
+         font-size:15px;line-height:1;display:flex;align-items:center;justify-content:center;padding:0}
+  .paid .check{border-color:var(--green);background:var(--green)}
+  .name{flex:1;min-width:0;background:transparent;border:none;outline:none;
+        color:var(--text);font-size:15px;font-family:var(--sans);padding:0}
+  .paid .name{text-decoration:line-through}
+  .dollar{color:var(--muted);font-family:var(--mono);font-size:14px}
+  .amt{width:84px;background:transparent;border:none;outline:none;
+       border-bottom:1px dashed var(--line);color:var(--text);
+       font-family:var(--mono);font-size:15px;text-align:right;padding:2px 0}
+  .paid .amt{color:var(--muted)}
+  .del{background:none;border:none;color:var(--muted);font-size:16px;padding:0 2px;line-height:1}
+  .row2{display:flex;align-items:center;gap:8px;margin-top:6px;margin-left:36px}
+  .due{background:transparent;border:none;outline:none;color:var(--muted);
+       font-family:var(--mono);font-size:12px;color-scheme:dark;padding:0}
+  .due.empty{color:var(--dim)}
+  .duenote{font-size:12px;font-family:var(--mono)}
+  .clear{background:none;border:none;color:var(--dim);font-size:11px;padding:0}
+  .movers{margin-left:auto;display:flex;gap:6px}
+  .mv{background:transparent;border:1px solid var(--line);border-radius:7px;
+      color:var(--muted);width:30px;height:24px;font-size:12px;line-height:1;padding:0}
+  .mv:disabled{color:var(--disabled);cursor:default}
+  .add{width:100%;background:transparent;border:1px dashed var(--line);color:var(--muted);
+       border-radius:12px;padding:11px 0;font-size:14px;margin-top:4px}
+  footer{position:fixed;left:0;right:0;bottom:0;background:#101318;
+         border-top:1px solid var(--line);
+         padding:14px 16px calc(14px + env(safe-area-inset-bottom))}
+  .finner{max-width:560px;margin:0 auto}
+  .bar{height:4px;background:var(--line);border-radius:2px;overflow:hidden;margin-bottom:12px}
+  .fill{height:100%;background:var(--green);transition:width .25s;width:0}
+  .totals{display:flex;justify-content:space-between;align-items:flex-end}
+  .lbl{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+  .big{font-family:var(--mono);font-size:30px;font-weight:600;letter-spacing:-0.01em}
+  .side{text-align:right;font-family:var(--mono);font-size:13px;color:var(--muted);line-height:1.7}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Bills</h1>
+    <button class="ghost" id="reset">New month ↺</button>
+  </header>
+  <div class="subtle" id="count"></div>
+  <div id="list"></div>
+  <button class="add" id="add">+ Add a bill</button>
+</div>
+
+<footer>
+  <div class="finner">
+    <div class="bar"><div class="fill" id="fill"></div></div>
+    <div class="totals">
+      <div>
+        <div class="lbl">Remaining</div>
+        <div class="big" id="remaining">$0.00</div>
+      </div>
+      <div class="side">
+        <div>paid&nbsp;&nbsp;<span id="paid" style="color:var(--green)"></span></div>
+        <div>total&nbsp;<span id="total" style="color:var(--text)"></span></div>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+const KEY = "bills-data-v1";
+const DEFAULTS = [
+  ["Car payment",538.37],["Phone",78.88],["Insurance",98.77],["Internet",32.2],
+  ["Water",91.28],["Power",70],["Pet insurance",37.36],["Amazon Prime",7.68],
+  ["Claude",21.96],["Gas (avg)",100],["Food (est)",100]
+].map(([name,amount],i)=>({id:"b"+i,name,amount,paid:false,due:""}));
+
+let bills;
+try { bills = JSON.parse(localStorage.getItem(KEY)) || DEFAULTS; }
+catch(e){ bills = DEFAULTS; }
+
+const save = () => localStorage.setItem(KEY, JSON.stringify(bills));
+const money = n => n.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
+const uid = () => "b"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+
+function dueMeta(due){
+  if(!due) return null;
+  const t = new Date(); t.setHours(0,0,0,0);
+  const [y,m,d] = due.split("-").map(Number);
+  const days = Math.round((new Date(y,m-1,d)-t)/86400000);
+  if(days<0)  return {note:`${-days}d late`, color:"var(--red)"};
+  if(days===0)return {note:"today",          color:"var(--red)"};
+  if(days<=3) return {note:`in ${days}d`,    color:"var(--amber)"};
+  return {note:`in ${days}d`, color:"var(--muted)"};
+}
+
+function render(){
+  const list = document.getElementById("list");
+  list.innerHTML = "";
+  bills.forEach((b,idx)=>{
+    const card = document.createElement("div");
+    card.className = "bill" + (b.paid ? " paid" : "");
+
+    const r1 = document.createElement("div"); r1.className = "row1";
+
+    const chk = document.createElement("button");
+    chk.className = "check"; chk.textContent = b.paid ? "✓" : "";
+    chk.setAttribute("aria-label", b.paid ? "Mark unpaid" : "Mark paid");
+    chk.onclick = () => { b.paid = !b.paid; save(); render(); };
+
+    const name = document.createElement("input");
+    name.className = "name"; name.value = b.name; name.placeholder = "Bill name";
+    name.oninput = () => { b.name = name.value; save(); };
+
+    const dollar = document.createElement("span");
+    dollar.className = "dollar"; dollar.textContent = "$";
+
+    const amt = document.createElement("input");
+    amt.className = "amt"; amt.inputMode = "decimal"; amt.value = money(b.amount||0);
+    amt.onfocus = () => { amt.value = String(b.amount||""); setTimeout(()=>amt.select(),0); };
+    amt.onblur = () => {
+      const v = parseFloat(amt.value.replace(/[^0-9.]/g,""));
+      b.amount = isNaN(v) ? 0 : v;
+      amt.value = money(b.amount);
+      save(); updateTotals();
+    };
+
+    const del = document.createElement("button");
+    del.className = "del"; del.textContent = "×"; del.setAttribute("aria-label","Delete bill");
+    del.onclick = () => { bills = bills.filter(x=>x.id!==b.id); save(); render(); };
+
+    r1.append(chk,name,dollar,amt,del);
+
+    const r2 = document.createElement("div"); r2.className = "row2";
+
+    const due = document.createElement("input");
+    due.type = "date"; due.className = "due" + (b.due ? "" : " empty"); due.value = b.due||"";
+    due.onchange = () => { b.due = due.value; save(); render(); };
+    r2.append(due);
+
+    const dm = b.paid ? null : dueMeta(b.due);
+    if(dm){
+      const n = document.createElement("span");
+      n.className = "duenote"; n.style.color = dm.color; n.textContent = "· "+dm.note;
+      r2.append(n);
+    }
+    if(b.due){
+      const c = document.createElement("button");
+      c.className = "clear"; c.textContent = "clear";
+      c.onclick = () => { b.due = ""; save(); render(); };
+      r2.append(c);
+    }
+
+    const movers = document.createElement("div"); movers.className = "movers";
+    const up = document.createElement("button");
+    up.className = "mv"; up.textContent = "▲"; up.disabled = idx===0;
+    up.setAttribute("aria-label","Move up");
+    up.onclick = () => { [bills[idx-1],bills[idx]]=[bills[idx],bills[idx-1]]; save(); render(); };
+    const dn = document.createElement("button");
+    dn.className = "mv"; dn.textContent = "▼"; dn.disabled = idx===bills.length-1;
+    dn.setAttribute("aria-label","Move down");
+    dn.onclick = () => { [bills[idx+1],bills[idx]]=[bills[idx],bills[idx+1]]; save(); render(); };
+    movers.append(up,dn);
+    r2.append(movers);
+
+    card.append(r1,r2);
+    list.append(card);
+  });
+  updateTotals();
+}
+
+function updateTotals(){
+  const total = bills.reduce((s,b)=>s+(b.amount||0),0);
+  const paid  = bills.filter(b=>b.paid).reduce((s,b)=>s+(b.amount||0),0);
+  const rem   = total - paid;
+  document.getElementById("remaining").textContent = "$"+money(rem);
+  document.getElementById("remaining").style.color = rem>0 ? "var(--amber)" : "var(--green)";
+  document.getElementById("paid").textContent  = "$"+money(paid);
+  document.getElementById("total").textContent = "$"+money(total);
+  document.getElementById("fill").style.width = (total>0 ? paid/total*100 : 0)+"%";
+  document.getElementById("count").textContent =
+    `${bills.filter(b=>b.paid).length} of ${bills.length} paid`;
+}
+
+document.getElementById("add").onclick = () => {
+  bills.push({id:uid(),name:"",amount:0,paid:false,due:""});
+  save(); render();
+};
+document.getElementById("reset").onclick = () => {
+  if(confirm("Uncheck all bills for a new month?")){
+    bills.forEach(b=>b.paid=false); save(); render();
+  }
+};
+
+render();
+
+if("serviceWorker" in navigator){
+  navigator.serviceWorker.register("sw.js").catch(()=>{});
+}
+</script>
+</body>
+</html>
