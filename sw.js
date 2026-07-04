@@ -1,4 +1,4 @@
-const CACHE = "bills-v2";
+const CACHE = "bills-v3";
 const ASSETS = ["./", "./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", (e) => {

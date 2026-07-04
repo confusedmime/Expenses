@@ -139,9 +139,8 @@ const uid = () => "b"+Date.now().toString(36)+Math.random().toString(36).slice(2
 const money = n => n.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
 
 const DEFAULTS = [
-  ["Car payment",538.37],["Phone",78.88],["Insurance",98.77],["Internet",32.2],
-  ["Water",91.28],["Power",70],["Pet insurance",37.36],["Amazon Prime",7.68],
-  ["Claude",21.96],["Gas (avg)",100],["Food (est)",100]
+  ["Rent",1200],["Car payment",350],["Phone",60],["Electric",90],
+  ["Internet",50],["Insurance",120],["Subscriptions",30],["Groceries",300]
 ].map(([name,amount])=>({id:uid()+Math.random().toString(36).slice(2,4),
   name,amount,paid:false,paidAmount:0,due:"",autopay:false}));
 
